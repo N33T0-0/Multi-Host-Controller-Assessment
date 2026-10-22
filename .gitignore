@@ -1,0 +1,93 @@
+# ==========================================
+# .NET build outputs
+# ==========================================
+**/bin/
+**/obj/
+**/out/
+
+# ==========================================
+# Visual Studio
+# ==========================================
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ==========================================
+# Visual Studio Code
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# ==========================================
+# JetBrains Rider
+# ==========================================
+.idea/
+*.sln.iml
+
+# ==========================================
+# Logs and temporary files
+# ==========================================
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.orig
+
+# ==========================================
+# Local configuration and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+
+**/appsettings.Local.json
+**/appsettings.Development.local.json
+**/secrets.json
+
+# User-specific ASP.NET Core settings
+**/Properties/launchSettings.local.json
+
+# ==========================================
+# Test and coverage outputs
+# ==========================================
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+
+# ==========================================
+# Local databases and database backups
+# ==========================================
+*.mdf
+*.ldf
+*.bak
+*.trn
+*.db
+*.sqlite
+*.sqlite3
+
+# ==========================================
+# Operating system files
+# ==========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==========================================
+# Deployment and temporary artifacts
+# ==========================================
+publish/
+artifacts/
+deploy-output/
+
+# ==========================================
+# Markdown and documentation files
+# ==========================================
+*.md
