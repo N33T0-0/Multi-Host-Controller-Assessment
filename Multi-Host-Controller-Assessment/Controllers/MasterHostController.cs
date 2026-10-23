@@ -7,7 +7,7 @@ using Multi_Host_Controller_Assessment.Services;
 namespace Multi_Host_Controller_Assessment.Controllers;
 
 /// <summary>
-/// Controller for client host agent registration and heartbeat management.
+/// Controller for client host agent registration, heartbeat management, and deactivation.
 /// </summary>
 [ApiController]
 [Route("api/master-host")]
@@ -24,7 +24,8 @@ public class MasterHostController : ControllerBase
     }
 
     /// <summary>
-    /// Registers a client host agent or refreshes an existing registration idempotently.
+    /// Registers a client host agent or returns the existing active record without modifications.
+    /// Returns 410 Gone if the agent has been soft-deactivated.
     /// </summary>
     /// <param name="request">Agent registration details.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -33,6 +34,7 @@ public class MasterHostController : ControllerBase
     [ProducesResponseType(typeof(RegisterClientAgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(RegisterClientAgentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status410Gone)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterClientAgentRequest request,
@@ -45,6 +47,16 @@ public class MasterHostController : ControllerBase
 
         var result = await _clientHostService.RegisterHostAsync(request, cancellationToken);
 
+        if (result.Status == RegisterStatus.Deactivated)
+        {
+            return StatusCode(StatusCodes.Status410Gone, new ProblemDetails
+            {
+                Status = StatusCodes.Status410Gone,
+                Title = "Client Agent Deactivated",
+                Detail = $"Client agent '{request.ClientAgentId}' has been deactivated and cannot register."
+            });
+        }
+
         var response = new RegisterClientAgentResponse
         {
             ClientAgentId = result.Host.ClientAgentId,
@@ -56,7 +68,7 @@ public class MasterHostController : ControllerBase
             IsNewRegistration = result.IsNewRegistration,
             Message = result.IsNewRegistration
                 ? "Client host registered successfully."
-                : "Client host registration refreshed successfully."
+                : "Client host is already registered (existing record unchanged)."
         };
 
         if (result.IsNewRegistration)
@@ -72,6 +84,7 @@ public class MasterHostController : ControllerBase
 
     /// <summary>
     /// Submits a heartbeat and optional resource metrics for a registered client host agent.
+    /// Returns 410 Gone without writing logs if the agent has been deactivated.
     /// </summary>
     /// <param name="id">ClientAgentID external identifier.</param>
     /// <param name="request">Optional heartbeat request containing metrics.</param>
@@ -81,6 +94,7 @@ public class MasterHostController : ControllerBase
     [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status410Gone)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Heartbeat(
         [FromRoute] string id,
@@ -100,7 +114,7 @@ public class MasterHostController : ControllerBase
                 request?.ResourceUsageMetrics,
                 cancellationToken);
 
-            if (result == null)
+            if (result.Status == HeartbeatStatus.NotFound)
             {
                 return NotFound(new ProblemDetails
                 {
@@ -110,11 +124,21 @@ public class MasterHostController : ControllerBase
                 });
             }
 
+            if (result.Status == HeartbeatStatus.Deactivated)
+            {
+                return StatusCode(StatusCodes.Status410Gone, new ProblemDetails
+                {
+                    Status = StatusCodes.Status410Gone,
+                    Title = "Client Agent Deactivated",
+                    Detail = $"Client agent with ID '{id}' has been deactivated and cannot submit heartbeats."
+                });
+            }
+
             return Ok(new HeartbeatResponse
             {
                 ClientAgentId = result.ClientAgentId,
                 LoggedDateTime = result.LoggedDateTime,
-                Status = result.Status,
+                Status = result.HostStatus,
                 Message = "Heartbeat recorded successfully."
             });
         }
@@ -124,5 +148,40 @@ public class MasterHostController : ControllerBase
             return ValidationProblem(ModelState);
         }
     }
-}
 
+    /// <summary>
+    /// Soft-deactivates a registered client host agent by its external ClientAgentID.
+    /// </summary>
+    /// <param name="id">ClientAgentID external identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>204 No Content on success; 404 Not Found if unknown ID.</returns>
+    [HttpPost("deactivate/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Deactivate(
+        [FromRoute] string id,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id.Trim().Length > 64)
+        {
+            ModelState.AddModelError(nameof(id), "Route identifier 'id' must be non-empty and not exceed 64 characters.");
+            return ValidationProblem(ModelState);
+        }
+
+        var success = await _clientHostService.DeactivateHostAsync(id, cancellationToken);
+
+        if (!success)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Client Agent Not Found",
+                Detail = $"Client agent with ID '{id}' is not registered."
+            });
+        }
+
+        return NoContent();
+    }
+}

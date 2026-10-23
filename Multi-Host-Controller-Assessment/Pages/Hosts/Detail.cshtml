@@ -1,0 +1,291 @@
+@page "/Hosts/{clientAgentId}"
+@model Multi_Host_Controller_Assessment.Pages.Hosts.DetailModel
+@{
+    var host = Model.HostDetail!;
+    ViewData["Title"] = host.ClientAgentName;
+}
+
+<div class="toolbar"><a class="back-link" asp-page="/Deployments/Instructions/Index">Deployment instructions</a></div>
+@if (!string.IsNullOrWhiteSpace(Model.DeploymentNotice)) { <div class="alert alert-info">@Model.DeploymentNotice</div> }
+<div asp-validation-summary="All" class="alert alert-warning"></div>
+
+<a class="back-link" href="/">← Back to hosts</a>
+
+<div class="card">
+    <h2>Registration Details</h2>
+    <dl>
+        <dt>Agent ID</dt>
+        <dd><code>@host.ClientAgentId</code></dd>
+
+        <dt>Name</dt>
+        <dd>@host.ClientAgentName</dd>
+
+        <dt>Operating System</dt>
+        <dd>@host.ClientAgentOS</dd>
+
+        <dt>Agent Version</dt>
+        <dd>@host.ClientAgentVersion</dd>
+
+        <dt>Registered At</dt>
+        <dd>@host.RegistrationDateTime.ToString("yyyy-MM-dd HH:mm:ss") <span class="muted">(SQL Server local time)</span></dd>
+
+        <dt>Status</dt>
+        <dd>
+            @if (host.IsDeactivated)
+            {
+                <span class="badge badge-deactivated">Deactivated</span>
+            }
+            else if (host.IsOnline)
+            {
+                <span class="badge badge-online">Online</span>
+            }
+            else
+            {
+                <span class="badge badge-offline">Offline</span>
+            }
+        </dd>
+
+        @if (host.IsDeactivated)
+        {
+            <dt>Deactivated At</dt>
+            <dd>
+                @if (host.DeletedAt.HasValue)
+                {
+                    @host.DeletedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                    <span class="muted">(SQL Server local time)</span>
+                }
+                else
+                {
+                    <span class="muted">Not recorded</span>
+                }
+            </dd>
+        }
+
+        <dt>Last Heartbeat</dt>
+        <dd>
+            @if (host.LatestHeartbeatAt.HasValue)
+            {
+                @host.LatestHeartbeatAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                <span class="muted">(SQL Server local time)</span>
+            }
+            else
+            {
+                <span class="muted">No heartbeat received</span>
+            }
+        </dd>
+    </dl>
+</div>
+
+@if (!host.IsDeactivated)
+{
+    <div class="card">
+        <h2>Agent Management</h2>
+        <form method="post" asp-page-handler="Deactivate" asp-route-clientAgentId="@host.ClientAgentId"
+              onsubmit="return confirm('Deactivate this agent? It will no longer be able to register or submit heartbeats.');">
+            <button type="submit" class="btn btn-danger">Deactivate agent</button>
+        </form>
+    </div>
+}
+else
+{
+    <div class="card alert alert-warning">
+        <p>This agent is deactivated. Registration and heartbeat requests from it are rejected.</p>
+    </div>
+}
+
+<div class="card">
+    <h2 id="deployment">Deploy package</h2>
+    @if (host.IsDeactivated)
+    {
+        <p class="muted">A deactivated host cannot receive new deployments.</p>
+    }
+    else if (Model.HasOngoingDeployment)
+    {
+        <p class="alert alert-warning">A deployment is already in progress. Wait for it to finish before starting another.</p>
+    }
+    else if (Model.CompatibleInstructions.Count == 0)
+    {
+        <p class="muted">No active deployment instructions match this host's platform. <a asp-page="/Deployments/Instructions/Index">Manage instructions</a>.</p>
+    }
+    else
+    {
+        <form method="post" asp-page-handler="Deploy" asp-route-clientAgentId="@host.ClientAgentId">
+            <label>Package</label>
+            <select asp-for="SelectedInstructionId" required>
+                <option value="">Select a package</option>
+                @foreach (var instruction in Model.CompatibleInstructions)
+                {
+                    <option value="@instruction.Id">@instruction.PackageName (@instruction.PackageCode) @instruction.Version — @instruction.Platform</option>
+                }
+            </select>
+            <label>Configuration override (JSON, optional)</label>
+            <textarea asp-for="Configuration" rows="4" placeholder="Leave empty to use the package default configuration"></textarea>
+            <p class="muted">Execution is currently simulated; stored playbook YAML is not run.</p>
+            <button class="btn" type="submit" onclick="return confirm('Start deployment on this host now?');">Deploy now</button>
+        </form>
+    }
+</div>
+
+<div class="card">
+    <h2>Deployment history</h2>
+    @if (Model.DeploymentJobs.Count == 0)
+    {
+        <p class="muted">No deployments have been requested for this host.</p>
+    }
+    else
+    {
+        @foreach (var job in Model.DeploymentJobs)
+        {
+            <details class="job-entry">
+                <summary><strong>Job #@job.Id</strong> — @job.PackageName @job.Version — @job.Status @(string.IsNullOrWhiteSpace(job.CurrentStep) ? "" : $"({job.CurrentStep})")</summary>
+                <dl>
+                    <dt>Requested</dt><dd>@job.RequestedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                    <dt>Started</dt><dd>@(job.StartedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</dd>
+                    <dt>Completed</dt><dd>@(job.CompletedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</dd>
+                    <dt>Success</dt><dd>@(job.Success.HasValue ? (job.Success.Value ? "Yes" : "No") : "In progress")</dd>
+                    @if (!string.IsNullOrWhiteSpace(job.ErrorMessage))
+                    {
+                        <dt>Error</dt><dd>@job.ErrorMessage</dd>
+                    }
+                </dl>
+                <h3>Execution log</h3>
+                @if (job.LogsUnavailable)
+                {
+                    <p class="alert alert-warning">Persistent job logs are unavailable. Apply database/DeploymentJobLogs.sql.</p>
+                }
+                else if (job.Logs.Count == 0)
+                {
+                    <p class="muted">No log entries available.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var log in job.Logs)
+                        {
+                            <li><time>@log.LoggedAt.ToString("yyyy-MM-dd HH:mm:ss")</time> <strong>@log.EventName</strong> (@log.Severity): @log.Message</li>
+                        }
+                    </ul>
+                }
+            </details>
+        }
+    }
+</div>
+
+@if (Model.HasOngoingDeployment)
+{
+    <script>window.setTimeout(() => window.location.reload(), 4000);</script>
+}
+
+@if (host.MetricsParseWarning)
+{
+    <div class="alert alert-warning">
+        ⚠ The latest metrics payload could not be parsed. The data may be malformed or in an unexpected format.
+    </div>
+}
+
+<div class="card">
+    <h2>Latest Process Metrics</h2>
+    <dl>
+        <dt>CPU Usage</dt>
+        <dd>
+            @if (host.ProcessMetrics?.CpuUsagePercentage.HasValue == true)
+            {
+                @($"{host.ProcessMetrics.CpuUsagePercentage:F2}%")
+                <span class="muted">(@host.ProcessMetrics.CpuUsageUnit)</span>
+            }
+            else
+            {
+                <span class="muted">Unavailable</span>
+            }
+        </dd>
+
+        <dt>Working Set</dt>
+        <dd>
+            @if (host.ProcessMetrics?.WorkingSetBytes.HasValue == true)
+            {
+                @FormatBytes(host.ProcessMetrics.WorkingSetBytes.Value)
+            }
+            else
+            {
+                <span class="muted">Unavailable</span>
+            }
+        </dd>
+
+        <dt>Private Memory</dt>
+        <dd>
+            @if (host.ProcessMetrics?.PrivateMemoryBytes.HasValue == true)
+            {
+                @FormatBytes(host.ProcessMetrics.PrivateMemoryBytes.Value)
+            }
+            else
+            {
+                <span class="muted">Unavailable</span>
+            }
+        </dd>
+
+        <dt>Disk Usage</dt>
+        <dd><span class="muted">Not reported — current Client Agent does not collect disk metrics</span></dd>
+    </dl>
+</div>
+
+<div class="card">
+    <h2>Host Environment</h2>
+    @if (host.HostEnvironmentMetrics is null)
+    {
+        <p class="muted">No host environment metrics available for the latest heartbeat.</p>
+    }
+    else
+    {
+        <dl>
+            <dt>Logical Processors</dt>
+            <dd>
+                @if (host.HostEnvironmentMetrics.ProcessorCount.HasValue)
+                {
+                    @host.HostEnvironmentMetrics.ProcessorCount.Value
+                }
+                else
+                {
+                    <span class="muted">Unavailable</span>
+                }
+            </dd>
+
+            <dt>Total Available Memory</dt>
+            <dd>
+                @if (host.HostEnvironmentMetrics.TotalAvailableMemoryBytes.HasValue)
+                {
+                    @FormatBytes(host.HostEnvironmentMetrics.TotalAvailableMemoryBytes.Value)
+                }
+                else
+                {
+                    <span class="muted">Unavailable</span>
+                }
+            </dd>
+
+            <dt>OS (from host env)</dt>
+            <dd>
+                @if (!string.IsNullOrWhiteSpace(host.HostEnvironmentMetrics.OperatingSystem))
+                {
+                    @host.HostEnvironmentMetrics.OperatingSystem
+                }
+                else
+                {
+                    <span class="muted">Unavailable</span>
+                }
+            </dd>
+        </dl>
+    }
+</div>
+
+@functions {
+    static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1_073_741_824)
+            return $"{bytes / 1_073_741_824.0:F2} GB";
+        if (bytes >= 1_048_576)
+            return $"{bytes / 1_048_576.0:F2} MB";
+        if (bytes >= 1024)
+            return $"{bytes / 1024.0:F2} KB";
+        return $"{bytes} B";
+    }
+}
+

@@ -18,5 +18,9 @@ public class ClientHost
     public DateTime ClientRegistrationDateTime { get; set; }
 
     public bool Status { get; set; }
+
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
 }
 

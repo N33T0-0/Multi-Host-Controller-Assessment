@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Client-Agent/Client-Agent.csproj" Id="ed6a3e79-140f-4bd8-8342-7acb788a14c8" />
+  <Project Path="Client-Agent.Tests/Client-Agent.Tests.csproj" />
   <Project Path="Multi-Host-Controller-Assessment/Master-Host.csproj" />
   <Project Path="Master-Host.Tests/Master-Host.Tests.csproj" />
 </Solution>

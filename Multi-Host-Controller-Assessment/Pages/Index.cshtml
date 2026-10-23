@@ -1,0 +1,72 @@
+@page
+@model Multi_Host_Controller_Assessment.Pages.IndexModel
+@{
+    ViewData["Title"] = "Registered Hosts";
+}
+
+<h1>Registered Client Hosts</h1>
+<p><a class="btn" asp-page="/Deployments/Instructions/Index">Manage deployment instructions</a></p>
+
+@if (!Model.Hosts.Any())
+{
+    <div class="alert alert-info">No client hosts have registered yet.</div>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Agent ID</th>
+                <th>OS</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Last Heartbeat</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var host in Model.Hosts)
+            {
+                <tr>
+                    <td>@host.ClientAgentName</td>
+                    <td><code>@host.ClientAgentId</code></td>
+                    <td>@host.ClientAgentOS</td>
+                    <td>@host.ClientAgentVersion</td>
+                    <td>
+                        @if (host.IsDeactivated)
+                        {
+                            <span class="badge badge-deactivated">Deactivated</span>
+                            @if (host.DeletedAt.HasValue)
+                            {
+                                <br /><small class="muted">Since @host.DeletedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")</small>
+                            }
+                        }
+                        else if (host.IsOnline)
+                        {
+                            <span class="badge badge-online">Online</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-offline">Offline</span>
+                        }
+                    </td>
+                    <td>
+                        @if (host.LatestHeartbeatAt.HasValue)
+                        {
+                            @host.LatestHeartbeatAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                        }
+                        else
+                        {
+                            <span class="muted">Never</span>
+                        }
+                    </td>
+                    <td>
+                        <a class="row-link" asp-page="/Hosts/Detail" asp-route-clientAgentId="@host.ClientAgentId">Details →</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+

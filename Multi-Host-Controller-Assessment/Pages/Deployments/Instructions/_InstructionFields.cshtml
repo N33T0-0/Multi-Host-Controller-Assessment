@@ -1,0 +1,11 @@
+@model Multi_Host_Controller_Assessment.Pages.Deployments.Instructions.IndexModel.InstructionForm
+<div class="form-grid">
+    <label>Package code <input asp-for="PackageCode" maxlength="100" required /></label>
+    <label>Package name <input asp-for="PackageName" maxlength="200" required /></label>
+    <label>Version <input asp-for="Version" maxlength="30" required /></label>
+    <label>Platform <input asp-for="Platform" maxlength="30" required placeholder="Windows, Linux, or Any" /></label>
+</div>
+<label>Install playbook YAML <textarea asp-for="InstallPlaybookYaml" rows="8" required></textarea></label>
+<label>Verification playbook YAML <textarea asp-for="VerificationPlaybookYaml" rows="6" required></textarea></label>
+<label>Rollback playbook YAML <textarea asp-for="RollbackPlaybookYaml" rows="6"></textarea></label>
+<label>Default configuration (JSON) <textarea asp-for="DefaultConfiguration" rows="4"></textarea></label>

@@ -1,0 +1,55 @@
+@page
+@model Multi_Host_Controller_Assessment.Pages.Deployments.Instructions.IndexModel
+@{
+    ViewData["Title"] = "Deployment Instructions";
+}
+
+<a class="back-link" href="/">← Back to hosts</a>
+<h1>Deployment Instructions</h1>
+<p class="muted">Playbooks are stored as text. The current Client Agent simulates jobs and does not execute these playbooks.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.Notice)) { <div class="alert alert-info">@Model.Notice</div> }
+<div asp-validation-summary="All" class="alert alert-warning"></div>
+
+<details class="card">
+    <summary><strong>Add deployment instruction</strong></summary>
+    <form method="post" asp-page-handler="Create">
+        <partial name="_InstructionFields" model="Model.Form" />
+        <button class="btn" type="submit">Create instruction</button>
+    </form>
+</details>
+
+@if (Model.Instructions.Count == 0)
+{
+    <div class="alert alert-info">No deployment instructions have been added.</div>
+}
+else
+{
+    @foreach (var item in Model.Instructions)
+    {
+        <details class="card">
+            <summary><strong>@item.PackageName</strong> — @item.PackageCode @item.Version (@item.Platform) · @(item.IsActive ? "Active" : "Inactive")</summary>
+            <p>Created @item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+            <form method="post" asp-page-handler="Update">
+                <input type="hidden" name="Form.Id" value="@item.Id" />
+                <div class="form-grid">
+                    <label>Package code <input name="Form.PackageCode" value="@item.PackageCode" maxlength="100" required /></label>
+                    <label>Package name <input name="Form.PackageName" value="@item.PackageName" maxlength="200" required /></label>
+                    <label>Version <input name="Form.Version" value="@item.Version" maxlength="30" required /></label>
+                    <label>Platform <input name="Form.Platform" value="@item.Platform" maxlength="30" required /></label>
+                </div>
+                <label>Install playbook YAML <textarea name="Form.InstallPlaybookYaml" required rows="8">@item.InstallPlaybookYaml</textarea></label>
+                <label>Verification playbook YAML <textarea name="Form.VerificationPlaybookYaml" required rows="6">@item.VerificationPlaybookYaml</textarea></label>
+                <label>Rollback playbook YAML <textarea name="Form.RollbackPlaybookYaml" rows="6">@item.RollbackPlaybookYaml</textarea></label>
+                <label>Default configuration (JSON) <textarea name="Form.DefaultConfiguration" rows="4">@item.DefaultConfiguration</textarea></label>
+                <button class="btn" type="submit">Save changes</button>
+            </form>
+            <form method="post" asp-page-handler="Toggle" class="inline-form">
+                <input type="hidden" name="id" value="@item.Id" />
+                <input type="hidden" name="active" value="@(!item.IsActive)" />
+                <button class="btn" type="submit">@(item.IsActive ? "Deactivate instruction" : "Activate instruction")</button>
+            </form>
+        </details>
+    }
+}
+

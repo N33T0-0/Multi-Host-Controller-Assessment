@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – Master Host Dashboard</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+        header { background: #1a1a2e; color: #fff; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+        header a { color: #eee; text-decoration: none; font-weight: 600; font-size: 1.1rem; }
+        header a:hover { color: #fff; }
+        main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+        th { background: #1a1a2e; color: #fff; text-align: left; padding: 0.6rem 0.9rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: .05em; }
+        td { padding: 0.6rem 0.9rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #fafafa; }
+        .badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }
+        .badge-online { background: #d4edda; color: #155724; }
+        .badge-offline { background: #f8d7da; color: #721c24; }
+        .badge-deactivated { background: #6c757d; color: #fff; }
+        .btn { display: inline-block; padding: 0.5rem 1rem; border: none; border-radius: 4px; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #bd2130; }
+        .btn:disabled, .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+        .muted { color: #888; font-style: italic; }
+        a.row-link { color: #1a73e8; text-decoration: none; }
+        a.row-link:hover { text-decoration: underline; }
+        .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+        .card h2 { margin: 0 0 0.75rem; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+        dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.5rem; margin: 0; }
+        dt { font-weight: 600; color: #555; font-size: 0.85rem; }
+        dd { margin: 0; font-size: 0.9rem; }
+        .back-link { display: inline-block; margin-bottom: 1rem; color: #1a73e8; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+        .alert { padding: 0.6rem 1rem; border-radius: 4px; font-size: 0.88rem; margin-bottom: 1rem; }
+        .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        label { display: block; font-weight: 600; margin: .75rem 0 .3rem; }
+        input, select, textarea { width: 100%; max-width: 100%; padding: .5rem; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+        textarea { font-family: Consolas, monospace; }
+        form { margin: .5rem 0; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; }
+        .form-grid label { margin: .5rem 0; }
+        .job-entry { border-top: 1px solid #ddd; padding: .75rem 0; }
+        .job-entry summary, details.card summary { cursor: pointer; }
+        .toolbar { display: flex; gap: 1rem; }
+        .btn { background: #1a73e8; color: white; }
+        .btn:hover { background: #1558b0; }
+    </style>
+</head>
+<body>
+<header>
+    <a href="/">⚙ Master Host Dashboard</a>
+</header>
+<main>
+    @RenderBody()
+</main>
+</body>
+</html>
+
