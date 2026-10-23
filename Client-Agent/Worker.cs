@@ -13,22 +13,28 @@ public class Worker : BackgroundService
 {
     private readonly ClientAgentOptions _options;
     private readonly IAgentIdProvider _agentIdProvider;
+    private readonly IAgentCredentialProvider _credentialProvider;
     private readonly IMasterHostClient _masterHostClient;
     private readonly IResourceMetricsProvider _metricsProvider;
     private readonly ILogger<Worker> _logger;
+    private readonly IAgentEnrollmentState? _enrollmentState;
 
     public Worker(
         IOptions<ClientAgentOptions> options,
         IAgentIdProvider agentIdProvider,
+        IAgentCredentialProvider credentialProvider,
         IMasterHostClient masterHostClient,
         IResourceMetricsProvider metricsProvider,
-        ILogger<Worker> logger)
+        ILogger<Worker> logger,
+        IAgentEnrollmentState? enrollmentState = null)
     {
         _options = options.Value;
         _agentIdProvider = agentIdProvider;
+        _credentialProvider = credentialProvider;
         _masterHostClient = masterHostClient;
         _metricsProvider = metricsProvider;
         _logger = logger;
+        _enrollmentState = enrollmentState;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,7 +47,20 @@ public class Worker : BackgroundService
         // 2. Retrieve or atomically generate persistent UUID
         var agentId = _agentIdProvider.GetOrCreateAgentId();
 
-        // 3. Resolve and constrain platform OS description (API limit: 50 characters)
+        // 3. Retrieve provisioned agent secret
+        string secret;
+        try
+        {
+            secret = _credentialProvider.GetSecret();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Client Agent could not start: pre-provisioned secret is unavailable.");
+            _enrollmentState?.MarkRejected();
+            return;
+        }
+
+        // 4. Resolve and constrain platform OS description (API limit: 50 characters)
         var osDescription = RuntimeInformation.OSDescription;
         if (osDescription.Length > 50)
         {
@@ -53,7 +72,8 @@ public class Worker : BackgroundService
             ClientAgentId = agentId,
             ClientAgentName = _options.Name.Trim(),
             ClientAgentOS = osDescription,
-            ClientAgentVersion = _options.Version.Trim()
+            ClientAgentVersion = _options.Version.Trim(),
+            ClientSecret = secret
         };
 
         _logger.LogInformation(
@@ -80,14 +100,23 @@ public class Worker : BackgroundService
 
                     if (registrationStatus == RegistrationResultStatus.Deactivated)
                     {
+                        _enrollmentState?.MarkRejected();
                         _logger.LogError(
                             "Client Agent '{AgentId}' is deactivated by the Master Host. No further requests will be sent; operator intervention is required.",
                             agentId);
                         return;
                     }
 
+                    if (registrationStatus == RegistrationResultStatus.AuthenticationFailed)
+                    {
+                        _enrollmentState?.MarkRejected();
+                        _logger.LogCritical("Master Host rejected the provisioned agent credential. Correct the credential before restarting the Client Agent.");
+                        return;
+                    }
+
                     if (registrationStatus == RegistrationResultStatus.Success)
                     {
+                        _enrollmentState?.MarkReady();
                         isRegistered = true;
                         retryDelay = TimeSpan.FromSeconds(5); // Reset backoff on success
                         _logger.LogInformation("Agent '{AgentId}' registration accepted by Master Host.", agentId);
@@ -108,6 +137,11 @@ public class Worker : BackgroundService
                             _logger.LogError(
                                 "Client Agent '{AgentId}' was deactivated while starting. No further requests will be sent; operator intervention is required.",
                                 agentId);
+                            return;
+                        }
+                        if (initialHbStatus == HeartbeatResultStatus.AuthenticationFailed)
+                        {
+                            _logger.LogCritical("Master Host rejected Client Agent authentication. Correct the credential before restarting the Client Agent.");
                             return;
                         }
                     }
@@ -150,6 +184,11 @@ public class Worker : BackgroundService
                     _logger.LogError(
                         "Client Agent '{AgentId}' was deactivated by the Master Host. No further requests will be sent; operator intervention is required.",
                         agentId);
+                    return;
+                }
+                else if (hbStatus == HeartbeatResultStatus.AuthenticationFailed)
+                {
+                    _logger.LogCritical("Master Host rejected Client Agent authentication. Correct the credential before restarting the Client Agent.");
                     return;
                 }
                 else if (hbStatus == HeartbeatResultStatus.Failed)

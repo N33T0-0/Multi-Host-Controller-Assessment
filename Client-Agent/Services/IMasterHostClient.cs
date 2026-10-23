@@ -7,6 +7,7 @@ public enum HeartbeatResultStatus
     Success,
     NotFound,
     Deactivated,
+    AuthenticationFailed,
     Failed
 }
 
@@ -14,6 +15,7 @@ public enum RegistrationResultStatus
 {
     Success,
     Deactivated,
+    AuthenticationFailed,
     Failed
 }
 

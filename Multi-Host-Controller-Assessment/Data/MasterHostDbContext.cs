@@ -22,6 +22,8 @@ public class MasterHostDbContext : DbContext
 
     public virtual DbSet<DeploymentJobLog> DeploymentJobLogs => Set<DeploymentJobLog>();
 
+    public virtual DbSet<ClientAgentCredential> ClientAgentCredentials => Set<ClientAgentCredential>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -167,6 +169,27 @@ public class MasterHostDbContext : DbContext
             entity.Property(e => e.Severity).HasColumnName("Severity").HasColumnType("varchar(20)").HasMaxLength(20).IsUnicode(false).IsRequired();
             entity.Property(e => e.Message).HasColumnName("Message").HasColumnType("nvarchar(max)").IsRequired();
             entity.HasOne<DeploymentJob>().WithMany().HasForeignKey(e => e.DeploymentJobId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClientAgentCredential>(entity =>
+        {
+            entity.ToTable("ClientAgentCredentials", "dbo");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("ID").HasColumnType("bigint").ValueGeneratedOnAdd();
+            entity.Property(e => e.ClientHostId).HasColumnName("ClientHostID").HasColumnType("bigint").IsRequired(false);
+            entity.Property(e => e.SecretHash).HasColumnName("SecretHash").HasColumnType("binary(32)").HasMaxLength(32).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").HasColumnType("datetime2(0)").HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+            entity.Property(e => e.ExpiresAt).HasColumnName("ExpiresAt").HasColumnType("datetime2(0)").IsRequired(false);
+            entity.Property(e => e.RevokedAt).HasColumnName("RevokedAt").HasColumnType("datetime2(0)").IsRequired(false);
+            entity.Property(e => e.LastUsedAt).HasColumnName("LastUsedAt").HasColumnType("datetime2(0)").IsRequired(false);
+
+            entity.HasOne(e => e.ClientHost)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClientHostId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.ClientHostId).HasDatabaseName("IX_ClientAgentCredentials_ClientHostID");
         });
     }
 }

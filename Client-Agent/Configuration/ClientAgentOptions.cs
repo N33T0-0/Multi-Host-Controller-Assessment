@@ -69,6 +69,22 @@ public class ClientAgentOptions
     public string? IdFilePath { get; set; }
 
     /// <summary>
+    /// Optional pre-provisioned secret string (e.g. from environment variable or secret configuration).
+    /// </summary>
+    public string? Secret { get; set; }
+
+    /// <summary>
+    /// Optional override file path where client secret is persisted locally.
+    /// When null or empty, defaults to Path.Combine(AppContext.BaseDirectory, "client-agent-secret").
+    /// </summary>
+    public string? SecretFilePath { get; set; }
+
+    /// <summary>
+    /// Whether HTTPS is strictly required for communication with Master Host.
+    /// </summary>
+    public bool RequireHttps { get; set; } = false;
+
+    /// <summary>
     /// Validates the configuration values according to contracts and security constraints.
     /// </summary>
     public void Validate()
@@ -99,6 +115,11 @@ public class ClientAgentOptions
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             throw new InvalidOperationException($"Configuration 'ClientAgent:MasterHostBaseUrl' must be a valid absolute HTTP or HTTPS URL (got: '{MasterHostBaseUrl}').");
+        }
+
+        if (RequireHttps && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException($"Configuration 'ClientAgent:MasterHostBaseUrl' must use HTTPS when RequireHttps is enabled (got: '{MasterHostBaseUrl}').");
         }
 
         if (HeartbeatIntervalSeconds <= 0)

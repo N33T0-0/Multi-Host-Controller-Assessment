@@ -11,7 +11,8 @@ public enum RegisterStatus
 {
     Created,
     ActiveExisting,
-    Deactivated
+    Deactivated,
+    CredentialRejected
 }
 
 /// <summary>
@@ -23,7 +24,9 @@ public class RegisterHostResult
 
     public bool IsNewRegistration => Status == RegisterStatus.Created;
 
-    public ClientHost Host { get; set; } = null!;
+    public ClientHost? Host { get; set; }
+
+    public string? ErrorMessage { get; set; }
 }
 
 /// <summary>

@@ -32,5 +32,5 @@ public sealed class DeploymentCompletionReport
     public string? ErrorMessage { get; set; }
 }
 
-public enum DeploymentPollStatus { Empty, Claimed, Deactivated, Failed }
+public enum DeploymentPollStatus { Empty, Claimed, Deactivated, AuthenticationFailed, Failed }
 public sealed record DeploymentPollResult(DeploymentPollStatus Status, DeploymentAssignment? Job = null);

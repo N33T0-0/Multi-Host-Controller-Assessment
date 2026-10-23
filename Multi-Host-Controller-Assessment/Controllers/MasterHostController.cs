@@ -1,5 +1,8 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.RateLimiting;
 using Multi_Host_Controller_Assessment.Models.Requests;
 using Multi_Host_Controller_Assessment.Models.Responses;
 using Multi_Host_Controller_Assessment.Services;
@@ -16,11 +19,13 @@ public class MasterHostController : ControllerBase
 {
     private readonly IClientHostService _clientHostService;
     private readonly ILogger<MasterHostController> _logger;
+    private readonly IHostEnvironment _environment;
 
-    public MasterHostController(IClientHostService clientHostService, ILogger<MasterHostController> logger)
+    public MasterHostController(IClientHostService clientHostService, ILogger<MasterHostController> logger, IHostEnvironment environment)
     {
         _clientHostService = clientHostService;
         _logger = logger;
+        _environment = environment;
     }
 
     /// <summary>
@@ -31,6 +36,8 @@ public class MasterHostController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Registration confirmation response.</returns>
     [HttpPost("register")]
+    [AllowAnonymous]
+    [EnableRateLimiting("agent-auth")]
     [ProducesResponseType(typeof(RegisterClientAgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(RegisterClientAgentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -40,12 +47,32 @@ public class MasterHostController : ControllerBase
         [FromBody] RegisterClientAgentRequest request,
         CancellationToken cancellationToken)
     {
+        if (!_environment.IsDevelopment() && !Request.IsHttps)
+        {
+            return StatusCode(StatusCodes.Status400BadRequest, new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "HTTPS required",
+                Detail = "Client agent enrollment must use HTTPS outside Development."
+            });
+        }
+
         if (!ModelState.IsValid)
         {
             return ValidationProblem(ModelState);
         }
 
         var result = await _clientHostService.RegisterHostAsync(request, cancellationToken);
+
+        if (result.Status == RegisterStatus.CredentialRejected)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Registration Rejected",
+                Detail = "Client credentials are invalid or cannot be enrolled."
+            });
+        }
 
         if (result.Status == RegisterStatus.Deactivated)
         {
@@ -54,6 +81,16 @@ public class MasterHostController : ControllerBase
                 Status = StatusCodes.Status410Gone,
                 Title = "Client Agent Deactivated",
                 Detail = $"Client agent '{request.ClientAgentId}' has been deactivated and cannot register."
+            });
+        }
+
+        if (result.Host == null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = 500,
+                Title = "Registration Failed",
+                Detail = "An unexpected error occurred during registration."
             });
         }
 
@@ -90,9 +127,12 @@ public class MasterHostController : ControllerBase
     /// <param name="request">Optional heartbeat request containing metrics.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Heartbeat confirmation response.</returns>
+    [Authorize(Policy = "ClientAgentPolicy")]
     [HttpPost("heartbeat/{id}")]
     [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status410Gone)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
@@ -105,6 +145,20 @@ public class MasterHostController : ControllerBase
         {
             ModelState.AddModelError(nameof(id), "Route identifier 'id' must be non-empty and not exceed 64 characters.");
             return ValidationProblem(ModelState);
+        }
+
+        var callerAgentId = User.FindFirst("client_agent_id")?.Value
+                            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                            ?? User.FindFirst("sub")?.Value;
+
+        if (!string.Equals(callerAgentId, id.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "Forbidden",
+                Detail = $"Token agent identity '{callerAgentId}' does not match route '{id}'."
+            });
         }
 
         try
@@ -155,6 +209,7 @@ public class MasterHostController : ControllerBase
     /// <param name="id">ClientAgentID external identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>204 No Content on success; 404 Not Found if unknown ID.</returns>
+    [Authorize(Policy = "AdminPolicy")]
     [HttpPost("deactivate/{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

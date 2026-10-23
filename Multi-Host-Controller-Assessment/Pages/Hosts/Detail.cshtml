@@ -120,7 +120,6 @@ else
             </select>
             <label>Configuration override (JSON, optional)</label>
             <textarea asp-for="Configuration" rows="4" placeholder="Leave empty to use the package default configuration"></textarea>
-            <p class="muted">Execution is currently simulated; stored playbook YAML is not run.</p>
             <button class="btn" type="submit" onclick="return confirm('Start deployment on this host now?');">Deploy now</button>
         </form>
     }
@@ -224,7 +223,6 @@ else
         </dd>
 
         <dt>Disk Usage</dt>
-        <dd><span class="muted">Not reported — current Client Agent does not collect disk metrics</span></dd>
     </dl>
 </div>
 

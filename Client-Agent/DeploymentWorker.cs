@@ -17,6 +17,7 @@ public sealed class DeploymentWorker : BackgroundService
     private readonly IWslPrerequisiteChecker _prerequisiteChecker;
     private readonly IDeploymentStager _deploymentStager;
     private readonly ILogger<DeploymentWorker> _logger;
+    private readonly IAgentEnrollmentState? _enrollmentState;
 
     public DeploymentWorker(
         IOptions<ClientAgentOptions> options,
@@ -25,7 +26,8 @@ public sealed class DeploymentWorker : BackgroundService
         IWslProcessRunner processRunner,
         IWslPrerequisiteChecker prerequisiteChecker,
         IDeploymentStager deploymentStager,
-        ILogger<DeploymentWorker> logger)
+        ILogger<DeploymentWorker> logger,
+        IAgentEnrollmentState? enrollmentState = null)
     {
         _options = options.Value;
         _agentIdProvider = agentIdProvider;
@@ -34,11 +36,17 @@ public sealed class DeploymentWorker : BackgroundService
         _prerequisiteChecker = prerequisiteChecker;
         _deploymentStager = deploymentStager;
         _logger = logger;
+        _enrollmentState = enrollmentState;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _options.Validate();
+        if (_enrollmentState is not null && !await _enrollmentState.WaitUntilCompleteAsync(stoppingToken))
+        {
+            _logger.LogWarning("Deployment polling stopped because Client Agent enrollment was rejected.");
+            return;
+        }
         string agentId;
         try
         {
@@ -69,6 +77,11 @@ public sealed class DeploymentWorker : BackgroundService
                 if (pollResult.Status == DeploymentPollStatus.Deactivated)
                 {
                     _logger.LogWarning("Master Host deactivated agent {AgentId}; deployment worker is stopping.", agentId);
+                    return;
+                }
+                if (pollResult.Status == DeploymentPollStatus.AuthenticationFailed)
+                {
+                    _logger.LogCritical("Master Host rejected Client Agent authentication. Correct the credential before restarting the Client Agent.");
                     return;
                 }
 

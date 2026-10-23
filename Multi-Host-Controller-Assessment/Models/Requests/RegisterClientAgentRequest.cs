@@ -35,6 +35,13 @@ public class RegisterClientAgentRequest : IValidatableObject
     [StringLength(20, MinimumLength = 1, ErrorMessage = "ClientAgentVersion must not exceed 20 characters.")]
     public string ClientAgentVersion { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Pre-provisioned secret for agent authentication.
+    /// </summary>
+    [Required(AllowEmptyStrings = false, ErrorMessage = "ClientSecret is required.")]
+    [StringLength(128, MinimumLength = 1, ErrorMessage = "ClientSecret must not exceed 128 characters.")]
+    public string ClientSecret { get; set; } = string.Empty;
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (string.IsNullOrWhiteSpace(ClientAgentId))
@@ -63,6 +70,13 @@ public class RegisterClientAgentRequest : IValidatableObject
             yield return new ValidationResult(
                 "ClientAgentVersion cannot be empty or whitespace.",
                 new[] { nameof(ClientAgentVersion) });
+        }
+
+        if (string.IsNullOrWhiteSpace(ClientSecret))
+        {
+            yield return new ValidationResult(
+                "ClientSecret cannot be empty or whitespace.",
+                new[] { nameof(ClientSecret) });
         }
     }
 }

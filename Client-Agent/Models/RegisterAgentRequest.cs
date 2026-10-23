@@ -13,5 +13,7 @@ public class RegisterAgentRequest
     public string ClientAgentOS { get; set; } = string.Empty;
 
     public string ClientAgentVersion { get; set; } = string.Empty;
+
+    public string ClientSecret { get; set; } = string.Empty;
 }
 
