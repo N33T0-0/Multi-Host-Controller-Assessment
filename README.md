@@ -153,8 +153,8 @@ erDiagram
 
 ## Documentation
 
-- [Setup and Installation](docs/setup-installation-guide.md)
-- [Usage Examples](docs/usage-examples.md)
-- [API Documentation](docs/api-documentation.md)
-- [WSL and Docker Setup](docs/wsl-docker-setup.md)
-- [Client Agent JWT Authentication](docs/client-agent-jwt-authentication.md)
+- [Setup and Installation](setup-installation-guide.md)
+- [Usage Examples](usage-examples.md)
+- [API Documentation](api-documentation.md)
+- [WSL and Docker Setup](wsl-docker-setup.md)
+- [Client Agent JWT Authentication](client-agent-jwt-authentication.md)
